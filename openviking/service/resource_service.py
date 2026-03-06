@@ -8,10 +8,7 @@ Provides resource management operations: add_resource, add_skill, wait_processed
 
 from typing import Any, Dict, List, Optional
 
-from openviking.resource import (
-    IncrementalUpdater,
-    ResourceLockConflictError,
-)
+
 from openviking.server.identity import RequestContext
 from openviking.storage import VikingDBManager
 from openviking.storage.queuefs import get_queue_manager
@@ -40,7 +37,6 @@ class ResourceService:
         viking_fs: Optional[VikingFS] = None,
         resource_processor: Optional[ResourceProcessor] = None,
         skill_processor: Optional[SkillProcessor] = None,
-        incremental_updater: Optional[IncrementalUpdater] = None,
     ):
         self._vikingdb = vikingdb
         self._viking_fs = viking_fs
@@ -53,14 +49,12 @@ class ResourceService:
         viking_fs: VikingFS,
         resource_processor: ResourceProcessor,
         skill_processor: SkillProcessor,
-        incremental_updater: Optional[IncrementalUpdater] = None,
     ) -> None:
         """Set dependencies (for deferred initialization)."""
         self._vikingdb = vikingdb
         self._viking_fs = viking_fs
         self._resource_processor = resource_processor
         self._skill_processor = skill_processor
-        self._incremental_updater = incremental_updater
 
     def _ensure_initialized(self) -> None:
         """Ensure all dependencies are initialized."""

@@ -56,6 +56,7 @@ async def vectorize_directory_meta(
     overview: str,
     context_type: str = "resource",
     ctx: Optional[RequestContext] = None,
+    semantic_msg_id: Optional[str] = None,
 ) -> None:
     """
     Vectorize directory metadata (.abstract.md and .overview.md).
@@ -72,7 +73,6 @@ async def vectorize_directory_meta(
     parent_uri = VikingURI(uri).parent.uri
     owner_space = _owner_space_for_uri(uri, ctx)
 
-    # Vectorize L0: .abstract.md (abstract)
     context_abstract = Context(
         uri=uri,
         parent_uri=parent_uri,
@@ -87,10 +87,10 @@ async def vectorize_directory_meta(
     context_abstract.set_vectorize(Vectorize(text=abstract))
     msg_abstract = EmbeddingMsgConverter.from_context(context_abstract)
     if msg_abstract:
+        msg_abstract.semantic_msg_id = semantic_msg_id
         await embedding_queue.enqueue(msg_abstract)
         logger.debug(f"Enqueued directory L0 (abstract) for vectorization: {uri}")
 
-    # Vectorize L1: .overview.md (overview)
     context_overview = Context(
         uri=uri,
         parent_uri=parent_uri,
@@ -105,6 +105,7 @@ async def vectorize_directory_meta(
     context_overview.set_vectorize(Vectorize(text=overview))
     msg_overview = EmbeddingMsgConverter.from_context(context_overview)
     if msg_overview:
+        msg_overview.semantic_msg_id = semantic_msg_id
         await embedding_queue.enqueue(msg_overview)
         logger.debug(f"Enqueued directory L1 (overview) for vectorization: {uri}")
 
@@ -114,6 +115,7 @@ async def vectorize_file(
     parent_uri: str,
     context_type: str = "resource",
     ctx: Optional[RequestContext] = None,
+    semantic_msg_id: Optional[str] = None,
 ) -> None:
     """
     Vectorize a single file.
@@ -147,7 +149,6 @@ async def vectorize_file(
 
         content_type = get_resource_content_type(file_name)
         if content_type == ResourceContentType.TEXT:
-            # For text files, try to read content
             try:
                 content = await viking_fs.read_file(file_path, ctx=ctx)
                 if isinstance(content, bytes):
@@ -161,7 +162,6 @@ async def vectorize_file(
                     logger.warning(f"No summary available for {file_path}, skipping vectorization")
                     return
         elif summary:
-            # For non-text files, use summary
             context.set_vectorize(Vectorize(text=summary))
         else:
             logger.debug(f"Skipping file {file_path} (no text content or summary)")
@@ -170,7 +170,8 @@ async def vectorize_file(
         embedding_msg = EmbeddingMsgConverter.from_context(context)
         if not embedding_msg:
             return
-            
+        
+        embedding_msg.semantic_msg_id = semantic_msg_id
         await embedding_queue.enqueue(embedding_msg)
         logger.debug(f"Enqueued file for vectorization: {file_path}")
         

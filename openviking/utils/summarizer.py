@@ -29,11 +29,20 @@ class Summarizer:
         resource_uris: List[str],
         ctx: "RequestContext",
         skip_vectorization: bool = False,
+        lock_resource_uri: str = "",
+        lock_id: str = "",
         **kwargs
     ) -> Dict[str, Any]:
         """
         Summarize the given resources.
         Triggers SemanticQueue to generate .abstract.md and .overview.md.
+        
+        Args:
+            resource_uris: List of resource URIs to summarize
+            ctx: Request context
+            skip_vectorization: Whether to skip vectorization
+            lock_resource_uri: Resource URI for lock release on completion
+            lock_id: Lock ID for release on completion
         """
         queue_manager = get_queue_manager()
         semantic_queue = queue_manager.get_queue(queue_manager.SEMANTIC, allow_create=True)
@@ -55,6 +64,8 @@ class Summarizer:
                 agent_id=ctx.user.agent_id,
                 role=ctx.role.value,
                 skip_vectorization=skip_vectorization,
+                lock_resource_uri=lock_resource_uri,
+                lock_id=lock_id,
             )
             await semantic_queue.enqueue(msg)
             enqueued_count += 1
