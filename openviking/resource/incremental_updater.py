@@ -318,17 +318,10 @@ class IncrementalUpdater:
         )
         
         try:
-            viking_uri = VikingURI(resource_uri)
             logger.info(
                 f"Updating resource: {resource_uri}, source_path: {source_path}"
             )
-            resource_path = viking_uri.local_path
-            
-            is_incremental = self._agfs.exists(resource_path)
-            logger.info(
-                f"Resource exists, performing incremental update: {resource_uri}"
-            )
-            result.is_incremental = is_incremental
+
             
             self._log_stage(
                 "start_update",
@@ -337,16 +330,6 @@ class IncrementalUpdater:
                 source_path=source_path,
             )
             
-            if not is_incremental:
-                logger.info(
-                    f"Resource does not exist, performing full update: {resource_uri}"
-                )
-                return await self._full_update(
-                    resource_uri=resource_uri,
-                    source_path=source_path,
-                    ctx=ctx,
-                    start_time=start_time,
-                )
             
             lock_info = await self._acquire_lock(update_ctx)
             result.lock_id = lock_info.lock_id
@@ -404,54 +387,7 @@ class IncrementalUpdater:
         
         return result
     
-    async def _full_update(
-        self,
-        resource_uri: str,
-        source_path: str,
-        ctx: Optional[RequestContext],
-        start_time: float,
-    ) -> IncrementalUpdateResult:
-        """Perform full update (non-incremental)."""
-        update_ctx = UpdateContext(resource_uri=resource_uri)
-        
-        result = IncrementalUpdateResult(
-            success=False,
-            resource_uri=resource_uri,
-            is_incremental=False,
-        )
-        
-        try:
-            lock_info = await self._acquire_lock(update_ctx, operation="full_update")
-            result.lock_id = lock_info.lock_id
-            
-            staging_area = self._create_staging_area(update_ctx)
-            result.staging_id = staging_area.staging_id
-            
-            self._upload_to_staging(update_ctx, source_path)
-            
-            publication_result = await self._publication_manager.publish(
-                staging_area=staging_area,
-            )
-            
-            result.success = publication_result.success
-            result.publication_result = publication_result.to_dict()
-            
-            if not result.success:
-                result.error_message = publication_result.error_message
-                result.error_stage = "publish"
-            
-        except Exception as e:
-            self._log_error("full_update", update_ctx, e)
-            result.error_message = str(e)
-            result.error_stage = "full_update"
-            
-        finally:
-            self._cleanup_staging(update_ctx)
-            self._release_lock(update_ctx)
-            
-            result.duration_ms = int((time.time() - start_time) * 1000)
-        
-        return result
+   
     
     def _upload_to_staging(self, ctx: UpdateContext, source_path: str) -> None:
         """Upload source content to staging area."""

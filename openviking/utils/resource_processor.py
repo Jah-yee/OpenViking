@@ -116,9 +116,9 @@ class ResourceProcessor:
         }
 
         # ============ Phase 1: Parse source (Parser generates L0/L1 and writes to temp) ============
+        viking_fs = get_viking_fs()
         try:
             media_processor = self._get_media_processor()
-            viking_fs = get_viking_fs()
             # Use reason as instruction fallback so it influences L0/L1
             # generation and improves search relevance as documented.
             effective_instruction = instruction or reason
@@ -166,6 +166,44 @@ class ResourceProcessor:
             else:
                 located_uri = f"viking://resources/{target}"
             logger.info(f"Using target location: {located_uri}")
+                
+        try:
+            with viking_fs.bind_request_context(ctx):
+                await viking_fs.stat(target, ctx=ctx)
+            # 如果执行到这里，说明资源存在
+            logger.info(
+                f"Resource exists, performing incremental update: {target}"
+            )
+            
+            update_result = await self.update_resource(
+                resource_uri=target,
+                source_path=path,
+                ctx=ctx,
+                wait=wait,
+            )
+            
+            result = {
+                "status": "success" if update_result.success else "error",
+                "root_uri": target,
+                "is_incremental": update_result.is_incremental,
+                "diff_stats": update_result.diff_stats,
+                "reuse_stats": update_result.reuse_stats,
+                "duration_ms": update_result.duration_ms,
+            }
+            
+            if not update_result.success:
+                result["error"] = update_result.error_message
+                result["error_stage"] = update_result.error_stage
+            
+            return result
+        except AGFSHTTPError as e:
+            if e.status_code == 404:
+                logger.info(f"Resource not found, performing full update: {target}")
+        except ResourceLockConflictError as e:
+            logger.warning(f"Resource lock conflict: {e}")
+            raise ConflictError(
+                f"Resource '{target}' is currently being updated by another operation"
+            ) from e
 
         # ============ Phase 3: TreeBuilder finalizes from temp (scan + move to AGFS) ============
         try:
