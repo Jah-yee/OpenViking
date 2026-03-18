@@ -18,6 +18,7 @@ export type MemoryOpenVikingConfig = {
   captureMode?: "semantic" | "keyword";
   captureMaxLength?: number;
   autoRecall?: boolean;
+  autoRecallTimeoutMs?: number;
   recallLimit?: number;
   recallScoreThreshold?: number;
   ingestReplyAssist?: boolean;
@@ -32,6 +33,7 @@ const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_CAPTURE_MODE = "semantic";
 const DEFAULT_CAPTURE_MAX_LENGTH = 24000;
 const DEFAULT_RECALL_LIMIT = 6;
+const DEFAULT_AUTO_RECALL_TIMEOUT_MS = 5000;
 const DEFAULT_RECALL_SCORE_THRESHOLD = 0.01;
 const DEFAULT_INGEST_REPLY_ASSIST = true;
 const DEFAULT_INGEST_REPLY_ASSIST_MIN_SPEAKER_TURNS = 2;
@@ -158,6 +160,10 @@ export const memoryOpenVikingConfigSchema = {
         Math.min(200_000, Math.floor(toNumber(cfg.captureMaxLength, DEFAULT_CAPTURE_MAX_LENGTH))),
       ),
       autoRecall: cfg.autoRecall !== false,
+      autoRecallTimeoutMs: Math.max(
+        1000,
+        Math.min(60000, Math.floor(toNumber(cfg.autoRecallTimeoutMs, DEFAULT_AUTO_RECALL_TIMEOUT_MS))),
+      ),
       recallLimit: Math.max(1, Math.floor(toNumber(cfg.recallLimit, DEFAULT_RECALL_LIMIT))),
       recallScoreThreshold: Math.min(
         1,
@@ -246,6 +252,12 @@ export const memoryOpenVikingConfigSchema = {
     autoRecall: {
       label: "Auto-Recall",
       help: "Inject relevant OpenViking memories into agent context",
+    },
+    autoRecallTimeoutMs: {
+      label: "Auto-Recall Timeout (ms)",
+      placeholder: String(DEFAULT_AUTO_RECALL_TIMEOUT_MS),
+      advanced: true,
+      help: "Timeout for auto-recall memory search (default: 5000ms)",
     },
     recallLimit: {
       label: "Recall Limit",
