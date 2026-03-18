@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go/middleware"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,14 +29,15 @@ type S3Client struct {
 
 // S3Config holds S3 client configuration
 type S3Config struct {
-	Region          string
-	Bucket          string
-	AccessKeyID     string
-	SecretAccessKey string
-	Endpoint        string // Optional custom endpoint (for S3-compatible services)
-	Prefix          string // Optional prefix for all keys
-	DisableSSL      bool   // For testing with local S3
-	UsePathStyle    bool  // Whether to use path-style addressing (true) or virtual-host-style (false)
+	Region               string
+	Bucket               string
+	AccessKeyID          string
+	SecretAccessKey      string
+	Endpoint             string // Optional custom endpoint (for S3-compatible services)
+	Prefix               string // Optional prefix for all keys
+	DisableSSL           bool   // For testing with local S3
+	UsePathStyle         bool   // Whether to use path-style addressing (true) or virtual-host-style (false)
+	DisableContentSHA256 bool   // Disable x-amz-content-sha256 header (some S3-compatible providers require this)
 }
 
 // NewS3Client creates a new S3 client
@@ -64,13 +67,24 @@ func NewS3Client(cfg S3Config) (*S3Client, error) {
 	// Create S3 client options
 	clientOpts := []func(*s3.Options){}
 
+	// Add DisableContentSHA256 if needed
+	if cfg.DisableContentSHA256 {
+		clientOpts = append(clientOpts, func(o *s3.Options) {
+			o.APIOptions = append(o.APIOptions, func(s *middleware.Stack) error {
+				return v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware(s)
+			})
+			o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+			o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
+		})
+	}
+
 	// Set custom endpoint if provided (for MinIO, LocalStack, TOS, etc.)
 	if cfg.Endpoint != "" {
 		clientOpts = append(clientOpts, func(o *s3.Options) {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 			// true represent UsePathStyle for MinIO and some S3-compatible services
 			// false represent VirtualHostStyle for TOS  and some S3-compatible services
-			o.UsePathStyle = cfg.UsePathStyle 
+			o.UsePathStyle = cfg.UsePathStyle
 		})
 	}
 
@@ -398,7 +412,7 @@ func (c *S3Client) DirectoryExists(ctx context.Context, path string) (bool, erro
 	if !strings.HasSuffix(dirKey, "/") {
 		dirKey += "/"
 	}
-	
+
 	// Try HeadObject to check if directory marker exists
 	_, err := c.client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
@@ -408,7 +422,7 @@ func (c *S3Client) DirectoryExists(ctx context.Context, path string) (bool, erro
 		// Directory marker exists
 		return true, nil
 	}
-	
+
 	// If directory marker doesn't exist, check if there are any objects with this prefix
 	prefix := dirKey
 	result, err := c.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{

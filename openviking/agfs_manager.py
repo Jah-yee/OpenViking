@@ -164,6 +164,7 @@ class AGFSManager:
                     "prefix": self.s3_config.prefix,
                     "disable_ssl": not self.s3_config.use_ssl,
                     "use_path_style": self.s3_config.use_path_style,
+                    "disable_content_sha256": self.s3_config.disable_content_sha256,
                 },
             }
         elif self.backend == "memory":

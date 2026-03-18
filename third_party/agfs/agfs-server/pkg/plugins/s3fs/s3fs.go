@@ -564,7 +564,7 @@ func (p *S3FSPlugin) Validate(cfg map[string]interface{}) error {
 	// Check for unknown parameters
 	allowedKeys := []string{
 		"bucket", "region", "access_key_id", "secret_access_key", "endpoint", "prefix", "disable_ssl", "mount_path",
-		"cache_enabled", "cache_ttl", "stat_cache_ttl", "cache_max_size", "use_path_style",
+		"cache_enabled", "cache_ttl", "stat_cache_ttl", "cache_max_size", "use_path_style", "disable_content_sha256",
 	}
 	if err := config.ValidateOnlyKnownKeys(cfg, allowedKeys); err != nil {
 		return err
@@ -605,14 +605,15 @@ func (p *S3FSPlugin) Initialize(config map[string]interface{}) error {
 
 	// Parse S3 configuration
 	cfg := S3Config{
-		Region:          getStringConfig(config, "region", "us-east-1"),
-		Bucket:          getStringConfig(config, "bucket", ""),
-		AccessKeyID:     getStringConfig(config, "access_key_id", ""),
-		SecretAccessKey: getStringConfig(config, "secret_access_key", ""),
-		Endpoint:        getStringConfig(config, "endpoint", ""),
-		Prefix:          getStringConfig(config, "prefix", ""),
-		DisableSSL:      getBoolConfig(config, "disable_ssl", false),
-		UsePathStyle:    getBoolConfig(config, "use_path_style", true),
+		Region:               getStringConfig(config, "region", "us-east-1"),
+		Bucket:               getStringConfig(config, "bucket", ""),
+		AccessKeyID:          getStringConfig(config, "access_key_id", ""),
+		SecretAccessKey:      getStringConfig(config, "secret_access_key", ""),
+		Endpoint:             getStringConfig(config, "endpoint", ""),
+		Prefix:               getStringConfig(config, "prefix", ""),
+		DisableSSL:           getBoolConfig(config, "disable_ssl", false),
+		UsePathStyle:         getBoolConfig(config, "use_path_style", true),
+		DisableContentSHA256: getBoolConfig(config, "disable_content_sha256", false),
 	}
 
 	if cfg.Bucket == "" {
@@ -703,6 +704,13 @@ func (p *S3FSPlugin) GetConfigParams() []plugin.ConfigParameter {
 			Required:    false,
 			Default:     "true",
 			Description: "Whether to use path-style addressing (true) or virtual-host-style (false). Defaults to false for TOS, true for other services.",
+		},
+		{
+			Name:        "disable_content_sha256",
+			Type:        "bool",
+			Required:    false,
+			Default:     "false",
+			Description: "Disable x-amz-content-sha256 header (required for some S3-compatible providers)",
 		},
 		{
 			Name:        "cache_enabled",

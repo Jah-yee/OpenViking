@@ -41,18 +41,18 @@ def load_agfs_config() -> AGFSConfig:
             return None
 
         return AGFSConfig(**agfs_data)
-    except Exception:
-        return None
+    except Exception as e:
+        raise Exception("config load error:") from e
 
 
 AGFS_CONF = load_agfs_config()
-AGFS_CONF.mode = "http-client"
 
 # 2. Skip tests if no S3 config found or backend is not S3
 pytestmark = pytest.mark.skipif(
     AGFS_CONF is None or AGFS_CONF.backend != "s3",
     reason="AGFS S3 configuration not found in ov.conf",
 )
+AGFS_CONF.mode = "http-client"
 
 
 @pytest.fixture(scope="module")
@@ -67,6 +67,7 @@ def s3_client():
         region_name=s3_conf.region,
         endpoint_url=s3_conf.endpoint,
         use_ssl=s3_conf.use_ssl,
+        # use_path_style=s3_conf.use_path_style,
     )
 
 

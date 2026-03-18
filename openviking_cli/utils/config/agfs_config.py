@@ -46,6 +46,11 @@ class S3Config(BaseModel):
         description="true represent UsePathStyle for MinIO and some S3-compatible services; false represent VirtualHostStyle for TOS  and some S3-compatible services.",
     )
 
+    disable_content_sha256: bool = Field(
+        default=False,
+        description="Disable x-amz-content-sha256 header. Required for some S3-compatible services like TOS.",
+    )
+
     model_config = {"extra": "forbid"}
 
     def validate_config(self):

@@ -37,8 +37,8 @@ def load_agfs_config() -> AGFSConfig:
             return None
 
         return AGFSConfig(**agfs_data)
-    except Exception:
-        return None
+    except Exception as e:
+        raise Exception("config load error:") from e
 
 
 AGFS_CONF = load_agfs_config()
